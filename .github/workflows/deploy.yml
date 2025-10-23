@@ -1,0 +1,63 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Inject SECRET_KEY into indico.conf
+        run: |
+          # Replace the empty SECRET_KEY with the actual secret from GitHub Secrets
+          sed -i "s/SECRET_KEY = ''/SECRET_KEY = '${{ secrets.INDICO_SECRET_KEY }}'/" indico-prod/indico.conf
+          
+          # Verify the secret was injected (without exposing it)
+          if grep -q "SECRET_KEY = ''" indico-prod/indico.conf; then
+            echo "ERROR: SECRET_KEY was not injected properly"
+            exit 1
+          fi
+          echo "✓ SECRET_KEY successfully injected into indico.conf"
+
+      - name: Set up environment variables
+        run: |
+          # Create .env file if needed for docker-compose
+          cat > indico-prod/.env << EOF
+          PGHOST=${{ secrets.PGHOST || 'indico-postgres' }}
+          PGUSER=${{ secrets.PGUSER || 'indico' }}
+          PGPASSWORD=${{ secrets.PGPASSWORD }}
+          PGDATABASE=${{ secrets.PGDATABASE || 'indico' }}
+          INDICO_CONFIG=./indico.conf
+          INDICO_LOGGING_CONFIG=./logging.yaml
+          NGINX_PORT=8080
+          EOF
+
+      - name: Build and deploy services
+        working-directory: ./indico-prod
+        run: |
+          docker compose down || true
+          docker compose up --build -d
+          
+      - name: Verify deployment
+        working-directory: ./indico-prod
+        run: |
+          echo "Waiting for services to start..."
+          sleep 10
+          docker compose ps
+          
+      - name: Check service health
+        working-directory: ./indico-prod
+        run: |
+          # Check if containers are running
+          if ! docker compose ps | grep -q "Up"; then
+            echo "ERROR: Services failed to start"
+            docker compose logs
+            exit 1
+          fi
+          echo "✓ All services are running"
