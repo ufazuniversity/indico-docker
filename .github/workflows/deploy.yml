@@ -13,10 +13,13 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Inject SECRET_KEY into indico.conf
+      - name: Inject SECRET_KEY and BASE_URL into indico.conf
         run: |
           # Replace the empty SECRET_KEY with the actual secret from GitHub Secrets
           sed -i "s/SECRET_KEY = ''/SECRET_KEY = '${{ secrets.INDICO_SECRET_KEY }}'/" indico-prod/indico.conf
+          
+          # Replace BASE_URL with the value from GitHub Variables
+          sed -i "s|BASE_URL = 'http://localhost:8080'|BASE_URL = '${{ vars.BASE_URL || 'http://localhost:8080' }}'|" indico-prod/indico.conf
           
           # Verify the secret was injected (without exposing it)
           if grep -q "SECRET_KEY = ''" indico-prod/indico.conf; then
@@ -24,6 +27,7 @@ jobs:
             exit 1
           fi
           echo "✓ SECRET_KEY successfully injected into indico.conf"
+          echo "✓ BASE_URL successfully injected into indico.conf"
 
       - name: Set up environment variables
         run: |
