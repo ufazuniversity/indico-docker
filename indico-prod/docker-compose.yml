@@ -17,6 +17,7 @@ services:
       - PGUSER=${PGUSER}
       - PGPASSWORD=${PGPASSWORD}
       - PGDATABASE=${PGDATABASE}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
     networks:
       - backend
       - frontend
