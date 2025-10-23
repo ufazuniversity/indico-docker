@@ -4,6 +4,7 @@ services:
   indico-web: &indico-web
     build: worker
     command: /opt/indico/run_indico.sh
+    restart: unless-stopped
     depends_on:
       indico-redis:
         condition: service_started
@@ -42,6 +43,7 @@ services:
   indico-celery: &indico-celery
     <<: *indico-web
     command: /opt/indico/run_celery.sh
+    restart: unless-stopped
     depends_on:
       - indico-redis
     networks:
@@ -51,9 +53,11 @@ services:
   indico-celery-beat:
     <<: *indico-celery
     command: /opt/indico/run_celery.sh beat
+    restart: unless-stopped
   # Redis
   indico-redis:
     image: redis
+    restart: unless-stopped
     networks:
       - backend
     volumes:
@@ -61,6 +65,7 @@ services:
   # Postgres
   indico-postgres:
     image: postgres:15-bookworm
+    restart: unless-stopped
     environment:
       - POSTGRES_USER=${PGUSER}
       - POSTGRES_PASSWORD=${PGPASSWORD}
@@ -79,6 +84,7 @@ services:
   # Indico can be accessed by default via localhost:8080
   indico-nginx:
     image: ghcr.io/nginxinc/nginx-unprivileged:stable-alpine
+    restart: unless-stopped
     depends_on:
       - indico-web
     networks:
